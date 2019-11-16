@@ -23,8 +23,8 @@ LABEL io.astronomer.docker.module="airflow"
 LABEL io.astronomer.docker.component="airflow"
 LABEL io.astronomer.docker.airflow.version="1.10.5"
 
-ARG ORG="astronomer"
-ARG VERSION="1.10.5-2"
+ARG ORG="dimberman"
+ARG VERSION="astronomer-1-10-experimental-knative"
 ARG SUBMODULES="all, statsd, elasticsearch"
 
 ENV AIRFLOW_REPOSITORY="https://github.com/${ORG}/airflow"
@@ -47,6 +47,8 @@ RUN echo @edge-community http://dl-cdn.alpinelinux.org/alpine/edge/community >> 
 	&& echo @edge http://dl-cdn.alpinelinux.org/alpine/edge/main >> /etc/apk/repositories
 
 # Install packages
+COPY requirements.txt /tmp/requirements.txt
+
 RUN apk update \
 	&& apk add --no-cache --virtual .build-deps \
 		build-base \
@@ -68,6 +70,7 @@ RUN apk update \
 		ca-certificates \
 		cyrus-sasl \
 		cython3@edge \
+		python3-dev \
 		freetds \
 		krb5-libs \
 		py3-bcrypt@edge \
@@ -90,19 +93,25 @@ RUN apk update \
 	&& pip3 install --no-cache-dir --upgrade pip==19.2.3 \
 	&& pip3 install --no-cache-dir --upgrade setuptools==41.0.1 \
 	&& pip3 install --no-cache-dir --upgrade snowflake-connector-python==1.9.1 \
-	&& pip3 install --no-cache-dir "${AIRFLOW_MODULE}" \
+	&& pip3 install -r /tmp/requirements.txt\
 	&& pip3 install --no-cache-dir "https://github.com/astronomer/astronomer-fab-securitymanager/releases/download/v1.2.1/astronomer_fab_security_manager-1.2.1-py3-none-any.whl" \
 	&& cd /usr/lib/python3.7/site-packages/airflow/www_rbac \
 	&& npm install \
 	&& npm run build \
 	&& rm -rf node_modules \
+	&& pip3 freeze \
 	&& apk del .build-deps py3-numpy-dev \
 	&& ln -sf /usr/bin/python3 /usr/bin/python \
 	&& ln -sf /usr/bin/pip3 /usr/bin/pip
 
+#RUN pip install --no-cache-dir "${AIRFLOW_MODULE}"
+RUN pip install "marshmallow-sqlalchemy<0.19.0,>=0.16.1"
+
+COPY ./airflow.tar.gz /tmp/airflow.tar.gz
+
+RUN pip install /tmp/airflow.tar.gz
 # Create logs directory so we can own it when we mount volumes
 RUN mkdir -p ${AIRFLOW_HOME}/logs
-
 # Copy entrypoint to root
 COPY include/entrypoint /
 
@@ -114,6 +123,7 @@ RUN chown -R ${ASTRONOMER_USER}:${ASTRONOMER_GROUP} ${AIRFLOW_HOME}
 
 # Switch to AIRFLOW_HOME
 WORKDIR ${AIRFLOW_HOME}
+
 
 # Expose all airflow ports
 EXPOSE 8080 5555 8793

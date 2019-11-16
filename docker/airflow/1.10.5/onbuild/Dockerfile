@@ -20,7 +20,6 @@ ARG BUILD_NUMBER=-1
 LABEL io.astronomer.docker=true
 LABEL io.astronomer.docker.build.number=$BUILD_NUMBER
 LABEL io.astronomer.docker.airflow.onbuild=true
-
 # Install alpine packages
 ONBUILD COPY packages.txt .
 ONBUILD RUN cat packages.txt | xargs apk add --no-cache
